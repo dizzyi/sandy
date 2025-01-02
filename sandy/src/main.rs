@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use egui_file::FileDialog;
 use serde::{Deserialize, Serialize};
-use ztransform::ZTransform;
 
 pub mod camera;
 pub mod channel;
@@ -13,6 +12,7 @@ pub mod config;
 pub mod console;
 pub mod dance;
 pub mod lua;
+pub mod plotter;
 pub mod runner;
 pub mod ztransform;
 
@@ -25,6 +25,7 @@ fn main() {
         //.add_plugins(chrome::ChromePlugin)
         .add_plugins(runner::RunnerPlugin)
         .add_plugins(console::ConsolePlugin)
+        .add_plugins(plotter::PlotterPlugin)
         .add_plugins(dance::DancePlugin)
         .add_plugins(lua::LuaPlugin)
         .add_systems(Startup, spawn_stuff)

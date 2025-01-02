@@ -19,13 +19,14 @@ Plotter = {}
 
 ---Push a data point on to a plot specify by name
 ---@param name string
----@param x number | integer
 ---@param y number | integer
-function Plotter.push(name, x, y) end
+function Plotter.push(name, y) end
+function Plotter.clear() end
 
 ---@class (exact) Dance
 ---@field runner Runner
 ---@field chromes Chrome[]
+---@field on_start? fun():nil
 
 ---@class Chrome
 ---@field parts ChromePart[]

@@ -9,10 +9,28 @@ pub struct DancePlugin;
 impl Plugin for DancePlugin {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<DanceOnStart>()
             // --
             .add_systems(Update, dance_tick)
+            .add_systems(Update, dance_on_start)
             // --
             ;
+    }
+}
+
+#[derive(Clone, Debug, Resource, Default)]
+pub struct DanceOnStart(pub Option<mlua::Function>);
+
+fn dance_on_start(on_start: Res<DanceOnStart>, mut event: EventReader<RunnerEvent>) {
+    for e in event.read() {
+        match e {
+            RunnerEvent::Restarted | RunnerEvent::Tick(0) => {
+                if let Some(f) = &on_start.0 {
+                    f.call::<()>(()).unwrap();
+                }
+            }
+            _ => {}
+        }
     }
 }
 

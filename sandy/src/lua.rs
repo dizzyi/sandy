@@ -24,7 +24,7 @@ impl Plugin for LuaPlugin {
             .add_systems(Update, (code_show).run_if(in_state(CodeShow(true))))
             .add_systems(StateTransition, code_show_transition)
             .add_systems(Update, (corpus_path_updated, corpus_hot_reload,load_file))
-            .add_systems(Update, despawn_chromes)
+            .add_systems(Update, (despawn_chromes).after(load_file))
             .add_systems(Update, (eval_corpus).after(despawn_chromes))
             // --
             ;
@@ -56,6 +56,7 @@ impl SandyLua {
             .add_chip(chrome::ColorChip)
             .add_chip(chrome::MeshChip)
             .add_chip(ztransform::GeometryChip)
+            .add_chip(plotter::PlotterChip)
     }
     pub fn add_chip(mut self, chip: impl LuaChip) -> Self {
         chip.build(&mut self);
@@ -166,11 +167,12 @@ fn eval_corpus(
     corpus: Res<Corpus>,
     mut lua: ResMut<SandyLua>,
     mut runner: ResMut<runner::Runner>,
+    mut on_start: ResMut<dance::DanceOnStart>,
 ) {
     if !corpus.is_changed() || corpus.is_added() {
         return;
     }
-
+    //println!("evaling");
     *lua = SandyLua::new();
 
     let table = match lua.0.load(corpus.clone()).eval::<Table>() {
@@ -202,6 +204,8 @@ fn eval_corpus(
         TimerMode::Repeating,
     );
 
+    *on_start = dance::DanceOnStart(table.get("on_start").ok());
+
     let chromes: Table = table.get("chromes").unwrap_or(lua.create_table().unwrap());
 
     for pair in chromes.pairs::<Value, Table>() {
@@ -213,7 +217,10 @@ fn eval_corpus(
 
         //println!("{:?}", ZBundle::default());
 
-        let chr = cmd.spawn((chr, ZBundle::default())).id();
+        let chr = cmd
+            //.spawn((chr, Visibility::Inherited, ZBundle::default()))
+            .spawn((chr, Visibility::default(), ZBundle::default()))
+            .id();
 
         let parts: Table = c.get("parts").unwrap();
 
@@ -243,6 +250,7 @@ fn despawn_chromes(
     if !corpus.is_changed() {
         return;
     }
+    //println!("despwning");
     for q in query.iter() {
         for ch in children.iter_descendants(q) {
             cmd.entity(ch).despawn();

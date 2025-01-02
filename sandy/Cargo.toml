@@ -9,6 +9,7 @@ bevy_egui = { workspace = true }
 mlua = { workspace = true }
 egui_file = { workspace = true }
 egui_extras = { workspace = true }
+egui_plot = { workspace = true }
 eframe = { workspace = true }
 dirs = { workspace = true }
 

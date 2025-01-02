@@ -8,6 +8,9 @@ function sandy.new_dance()
   local dance = {
     runner = sandy.new_runner();
     chromes = {},
+    on_start = function()
+      Plotter.clear();
+    end
   }
   return dance
 end
