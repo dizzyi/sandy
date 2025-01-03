@@ -39,11 +39,19 @@ pub enum CameraCoord {
 impl CameraCoord {
     fn default_plane() -> CameraCoord {
         CameraCoord::Plane {
-            x: 0.0,
-            y: 0.0,
-            z: 50.0,
+            x: CameraCoord::DEFAULT_X,
+            y: CameraCoord::DEFAULT_Y,
+            z: CameraCoord::DEFAULT_Z,
         }
     }
+
+    const DEFAULT_X: f32 = 0.0;
+    const DEFAULT_Y: f32 = 0.0;
+    const DEFAULT_Z: f32 = 50.0;
+    const DEFAULT_R: f32 = 50.0;
+    const DEFAULT_RX: f32 = 45.0;
+    const DEFAULT_RZ: f32 = 45.0;
+
     fn make_transform(&self) -> Transform {
         match self {
             CameraCoord::Plane { x, y, z } => {
@@ -108,9 +116,9 @@ impl CameraCoord {
 impl Default for CameraCoord {
     fn default() -> Self {
         CameraCoord::Space {
-            r: 50.0,
-            rx: 45.0,
-            rz: 45.0,
+            r: CameraCoord::DEFAULT_R,
+            rx: CameraCoord::DEFAULT_RX,
+            rz: CameraCoord::DEFAULT_RZ,
         }
     }
 }
@@ -169,27 +177,43 @@ impl lua::LuaChip for CameraChip {
     fn build(&self, lua: &mut lua::SandyLua) {
         let camera = lua.create_table().unwrap();
 
-        camera
-            .set(
-                "plane",
-                lua.create_function(|_, ()| {
-                    CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::default_plane()));
-                    Ok(())
-                })
-                .unwrap(),
-            )
-            .unwrap();
+        let plane = lua
+            .create_function(|_, value: mlua::Value| {
+                match value {
+                    mlua::Value::Table(t) => {
+                        let x = t.get("x").unwrap_or(CameraCoord::DEFAULT_X);
+                        let y = t.get("y").unwrap_or(CameraCoord::DEFAULT_Y);
+                        let z = t.get("z").unwrap_or(CameraCoord::DEFAULT_Z);
 
-        camera
-            .set(
-                "space",
-                lua.create_function(|_, ()| {
-                    CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::default()));
-                    Ok(())
-                })
-                .unwrap(),
-            )
+                        CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::Plane { x, y, z }));
+                    }
+                    _ => {
+                        CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::default_plane()));
+                    }
+                }
+                Ok(())
+            })
             .unwrap();
+        camera.set("plane", plane).unwrap();
+
+        let space = lua
+            .create_function(|_, value: mlua::Value| {
+                match value {
+                    mlua::Value::Table(t) => {
+                        let r = t.get("r").unwrap_or(CameraCoord::DEFAULT_R);
+                        let rx = t.get("rx").unwrap_or(CameraCoord::DEFAULT_RX);
+                        let rz = t.get("rz").unwrap_or(CameraCoord::DEFAULT_RZ);
+
+                        CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::Space { r, rx, rz }))
+                    }
+                    _ => {
+                        CAMERA_CHANNEL.send(CameraEvent::Set(CameraCoord::default()));
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        camera.set("space", space).unwrap();
 
         lua.globals().set("Camera", camera).unwrap();
     }

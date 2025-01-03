@@ -61,6 +61,7 @@ fn console_show(mut ctx: EguiContexts, console: Res<Console>) {
         .default_size([250.0, 500.0])
         .default_pos([900.0, 20.0])
         .vscroll(true)
+        .scroll(true)
         .resizable(true)
         .show(ctx.ctx_mut(), |ui| {
             egui::Grid::new("console_main_grid")

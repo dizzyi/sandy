@@ -4,19 +4,19 @@ use lua::CorpusPath;
 
 use crate::*;
 
-pub fn config_dirs() -> Vec<PathBuf> {
-    vec![
-        dirs::config_dir(),
-        dirs::config_local_dir(),
-        dirs::data_dir(),
-        dirs::data_local_dir(),
-        dirs::home_dir(),
-        dirs::executable_dir(),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
-}
+//pub fn config_dirs() -> Vec<PathBuf> {
+//    vec![
+//        dirs::config_dir(),
+//        dirs::config_local_dir(),
+//        dirs::data_dir(),
+//        dirs::data_local_dir(),
+//        dirs::home_dir(),
+//        dirs::executable_dir(),
+//    ]
+//    .into_iter()
+//    .flatten()
+//    .collect()
+//}
 
 #[derive(Debug, States, Clone, PartialEq, Eq, Hash, Default)]
 enum ConfigShow {
@@ -63,18 +63,18 @@ fn menu_egui(
 ) {
     egui::Window::new("Hello Choom!")
         .default_open(true)
-        .default_size([250.0, 500.0])
+        .default_size([250.0, 200.0])
         .default_pos([20.0, 20.0])
         .vscroll(true)
         .resizable(true)
         .show(ctx.ctx_mut(), |ui| {
             ui.label("Nova!");
 
-            let directories = config::config_dirs();
+            //let directories = config::config_dirs();
 
-            for d in directories {
-                ui.label(format!("{:?}", d));
-            }
+            //for d in directories {
+            //    ui.label(format!("{:?}", d));
+            //}
 
             let open_btn = ui.button("open");
             if open_btn.clicked() {

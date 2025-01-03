@@ -4,9 +4,11 @@
 Camera = {}
 
 ---Set the camera to planar mode top view of the world
-function Camera.plane() end
+---@param plane? {x:number, y:number, z:number}
+function Camera.plane(plane) end
 ---Set the camera to spatial mode default 3D view of the world
-function Camera.space() end
+---@param space? {r:number, rx:number, rz:number}
+function Camera.space(space) end
 
 ---@class Console
 Console = {}
@@ -22,11 +24,18 @@ Plotter = {}
 ---@param y number | integer
 function Plotter.push(name, y) end
 function Plotter.clear() end
+function Plotter.auto(auto) end
+function Plotter.aspect(aspect) end
 
 ---@class (exact) Dance
 ---@field runner Runner
 ---@field chromes Chrome[]
 ---@field on_start? fun():nil
+---@field on_tick? fun(tick:integer):nil
+
+Dance = {}
+---@param material Material
+function Dance.after_image(material) end
 
 ---@class Chrome
 ---@field parts ChromePart[]

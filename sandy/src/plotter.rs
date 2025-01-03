@@ -1,5 +1,4 @@
 use channel::{lazy_channel, LazyChannel};
-use egui_plot::PlotMemory;
 use std::collections::BTreeMap;
 
 use crate::*;
@@ -10,7 +9,7 @@ impl Plugin for PlotterPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_state::<PlotterShow>()
-            .init_resource::<PlotDB>()
+            .insert_resource(Plotter{aspect:2.0, ..Default::default()})
             .init_resource::<PlotterSelected>()
             .add_systems(StateTransition, plotter_state_transition)
             .add_systems(Update, plotter_update)
@@ -25,6 +24,8 @@ static PLOTTER_CHANNEL: LazyChannel<PlotterMessage> = lazy_channel!();
 #[derive(Debug, Clone)]
 pub enum PlotterMessage {
     PushPoint(String, f64),
+    SetAspect(f32),
+    AutoBound(bool),
     ClearAll,
 }
 
@@ -32,11 +33,13 @@ pub enum PlotterMessage {
 pub struct PlotterShow(bool);
 
 #[derive(Debug, Resource, Default)]
-pub struct PlotDB {
+pub struct Plotter {
     pub data: BTreeMap<String, Vec<[f64; 2]>>,
+    pub aspect: f32,
+    pub auto_bound: bool,
 }
 
-fn plotter_update(mut db: ResMut<PlotDB>, runner: Res<runner::Runner>) {
+fn plotter_update(mut db: ResMut<Plotter>, runner: Res<runner::Runner>) {
     while let Some(msg) = PLOTTER_CHANNEL.read() {
         match msg {
             PlotterMessage::PushPoint(s, y) => {
@@ -48,6 +51,12 @@ fn plotter_update(mut db: ResMut<PlotDB>, runner: Res<runner::Runner>) {
                         db.data.insert(s, v);
                     }
                 }
+            }
+            PlotterMessage::SetAspect(f) => {
+                db.aspect = f.clamp(0.1, 10.0);
+            }
+            PlotterMessage::AutoBound(b) => {
+                db.auto_bound = b;
             }
             PlotterMessage::ClearAll => {
                 db.data.clear();
@@ -79,6 +88,22 @@ impl lua::LuaChip for PlotterChip {
             .unwrap();
         plotter.set("clear", clear).unwrap();
 
+        let auto = lua
+            .create_function(|_, b: bool| {
+                PLOTTER_CHANNEL.send(PlotterMessage::AutoBound(b));
+                Ok(())
+            })
+            .unwrap();
+        plotter.set("auto", auto).unwrap();
+
+        let aspect = lua
+            .create_function(|_, f: f32| {
+                PLOTTER_CHANNEL.send(PlotterMessage::SetAspect(f));
+                Ok(())
+            })
+            .unwrap();
+        plotter.set("aspect", aspect).unwrap();
+
         lua.globals().set("Plotter", plotter).unwrap();
     }
 }
@@ -86,7 +111,7 @@ impl lua::LuaChip for PlotterChip {
 #[derive(Debug, Clone, Resource, Default, PartialEq, Eq)]
 struct PlotterSelected(Option<String>);
 
-fn plotter_show(mut ctx: EguiContexts, db: Res<PlotDB>, mut selected: ResMut<PlotterSelected>) {
+fn plotter_show(mut ctx: EguiContexts, db: Res<Plotter>, mut selected: ResMut<PlotterSelected>) {
     if !db.data.is_empty() && selected.0.is_none() {
         *selected = PlotterSelected(db.data.first_key_value().map(|(k, _)| k).cloned());
     } else if db.data.is_empty() {
@@ -122,15 +147,21 @@ fn plotter_show(mut ctx: EguiContexts, db: Res<PlotDB>, mut selected: ResMut<Plo
                     ui.label("graph");
 
                     if let Some(s) = &selected.0 {
-                        egui_plot::Plot::new("plotter_plot")
-                            .view_aspect(2.0)
-                            .show(ui, |ui| {
-                                if let Some(data) = db.data.get(s).cloned() {
-                                    let plot_points: egui_plot::PlotPoints = data.into();
-                                    let line = egui_plot::Line::new(plot_points);
-                                    ui.line(line);
-                                }
-                            });
+                        let mut plot = egui_plot::Plot::new("plotter_plot")
+                            .view_aspect(db.aspect)
+                            .auto_bounds([true, true].into());
+
+                        if db.auto_bound {
+                            plot = plot.reset();
+                        }
+
+                        plot.show(ui, |ui| {
+                            if let Some(data) = db.data.get(s).cloned() {
+                                let plot_points: egui_plot::PlotPoints = data.into();
+                                let line = egui_plot::Line::new(plot_points);
+                                ui.line(line);
+                            }
+                        });
                     }
                 });
             })

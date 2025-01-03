@@ -57,6 +57,7 @@ impl SandyLua {
             .add_chip(chrome::MeshChip)
             .add_chip(ztransform::GeometryChip)
             .add_chip(plotter::PlotterChip)
+            .add_chip(dance::DanceChip)
     }
     pub fn add_chip(mut self, chip: impl LuaChip) -> Self {
         chip.build(&mut self);
@@ -168,11 +169,12 @@ fn eval_corpus(
     mut lua: ResMut<SandyLua>,
     mut runner: ResMut<runner::Runner>,
     mut on_start: ResMut<dance::DanceOnStart>,
+    mut on_tick: ResMut<dance::DanceOnTick>,
+    mut event: EventWriter<runner::RunnerEvent>,
 ) {
     if !corpus.is_changed() || corpus.is_added() {
         return;
-    }
-    //println!("evaling");
+    } //println!("evaling");
     *lua = SandyLua::new();
 
     let table = match lua.0.load(corpus.clone()).eval::<Table>() {
@@ -205,6 +207,8 @@ fn eval_corpus(
     );
 
     *on_start = dance::DanceOnStart(table.get("on_start").ok());
+    *on_tick = dance::DanceOnTick(table.get("on_tick").ok());
+    event.send(runner::RunnerEvent::Restarted);
 
     let chromes: Table = table.get("chromes").unwrap_or(lua.create_table().unwrap());
 
