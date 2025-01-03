@@ -24,8 +24,8 @@ local chrome_1 = {
 		if tick == 500 then
 			Plotter.auto(false)
 		end
-		local y = (tick / 1000) ^ 5 * 10 * math.sin(tick * 0.1)
-		local x = 10 * math.cos(tick * 0.1)
+		local y = (tick / 1000) ^ 2 * 10 * math.sin(tick * 0.05)
+		local x = 10 * math.cos(tick * 0.05)
 		local z = tick * 0.01
 		Plotter.push("Chrome 1 y coord", y)
 		Plotter.push("Chrome 1 x coord", x)
@@ -41,7 +41,7 @@ local chrome_1 = {
 		{
 			mesh = Mesh.sphere(1.0),
 			material = {
-				color = Color.rgba({ green = 0.8, blue = 0.1 }),
+				color = Color.rgba({ green = 0.8, blue = 0.1, alpha = 1 }),
 			},
 			offset = Transform.from_xyz({ z = 1 }),
 		},
@@ -67,9 +67,9 @@ dance.chromes = {
 }
 
 dance.on_tick = function (tick)
-	Camera.space({ rz = tick / 10 })
+	-- Camera.space({ rz = tick / 10 })
   if tick % 1 == 0 then
-    local m = { color = Color.hsva({hue=tick/1000*360, saturation=1, value=1, alpha=1.0}) }
+    local m = { color = Color.hsva({hue=tick/1000*360, saturation=1, value=1, alpha=0.4}) }
     Dance.after_image(m);
   end 
 end

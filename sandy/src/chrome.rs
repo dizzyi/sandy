@@ -209,6 +209,7 @@ impl ChromeMaterial {
             emissive: self.emissive.0.into(),
             metallic: self.metallic,
             clearcoat: self.clearcoat,
+            alpha_mode: AlphaMode::Blend,
             ..Default::default()
         }
     }
