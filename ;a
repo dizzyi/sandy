@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use mlua::FromLua;
+use mlua::LuaSerdeExt;
 
 use crate::*;
 
@@ -58,10 +58,10 @@ impl ZTransform {
         lua: &mlua::Lua,
         (vec, rot): (mlua::Value, mlua::Value),
     ) -> Result<Self, mlua::Error> {
-        let vec = ZVec3::from_lua(vec, lua).unwrap_or_default();
-        let rot = ZQuat::from_lua(rot, lua).unwrap_or_default();
+        let vec= ZVec3.from_lua(lua,vec).unwrap_or_default();
+        let rot= lua.from_value(rot).unwrap_or_default();
 
-        Ok(ZTransform(Transform::from_translation(vec.0).with_rotation(rot.0)))
+        Ok(Transform::from_translation(vec.0).with_rotation(rot.0))
     }
 }
 
@@ -111,12 +111,6 @@ impl mlua::UserData for ZVec3 {
     }
 }
 
-impl mlua::FromLua for ZVec3 {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        ZVec3::lua_from_xyz(lua, value)
-    }
-}
-
 #[derive(Debug, Clone, Component, PartialEq, Default)]
 pub struct ZQuat(pub Quat);
 
@@ -137,11 +131,5 @@ impl mlua::UserData for ZQuat {
         methods.add_function("from_rx", ZQuat::lua_from_rx);
         methods.add_function("from_ry", ZQuat::lua_from_ry);
         methods.add_function("from_rz", ZQuat::lua_from_rz);
-    }
-}
-
-impl mlua::FromLua for ZQuat {
-    fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        todo!()
     }
 }
