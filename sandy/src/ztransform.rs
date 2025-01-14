@@ -61,13 +61,16 @@ impl ZTransform {
         let vec = ZVec3::from_lua(vec, lua).unwrap_or_default();
         let rot = ZQuat::from_lua(rot, lua).unwrap_or_default();
 
-        Ok(ZTransform(Transform::from_translation(vec.0).with_rotation(rot.0)))
+        Ok(ZTransform(
+            Transform::from_translation(vec.0).with_rotation(rot.0),
+        ))
     }
 }
 
 impl mlua::UserData for ZTransform {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("from_xyz", ZTransform::lua_from_xyz);
+        methods.add_function("from_vec_rot", ZTransform::lua_from_vec_rot);
     }
 }
 
@@ -142,6 +145,16 @@ impl mlua::UserData for ZQuat {
 
 impl mlua::FromLua for ZQuat {
     fn from_lua(value: mlua::Value, lua: &mlua::Lua) -> mlua::Result<Self> {
-        todo!()
+        match value {
+            mlua::Value::UserData(any) => {
+                let t: mlua::UserDataRef<ZQuat> = any.borrow()?;
+                Ok(t.clone())
+            }
+            _ => Err(mlua::Error::FromLuaConversionError {
+                from: "Transform",
+                to: format!("{:?}", value),
+                message: None,
+            }),
+        }
     }
 }

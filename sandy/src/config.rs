@@ -91,7 +91,7 @@ fn menu_egui(
             if let Some(dialog) = &mut file_picker.open_file_dialog {
                 if dialog.show(ui.ctx()).selected() {
                     if let Some(file) = dialog.path() {
-                        *corpus_path = lua::CorpusPath(file.to_path_buf());
+                        *corpus_path = lua::CorpusPath(Some(file.to_path_buf()));
                     }
                 }
             }

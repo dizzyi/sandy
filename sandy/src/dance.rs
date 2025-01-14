@@ -63,10 +63,13 @@ fn dance_chrome_on_tick(
             RunnerEvent::Restarted => 0,
         };
         for mut c in query.iter_mut() {
-            *c.0 =
-                c.1.on_tick
-                    .call(tick)
-                    .unwrap_or(ZTransform(Transform::IDENTITY));
+            *c.0 = match c.1.on_tick.call(tick) {
+                Ok(t) => t,
+                Err(e) => {
+                    println!("{:?}", e);
+                    ZTransform(Transform::IDENTITY)
+                }
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 use crate::*;
 
-use console::CONSOLE_CHANNEL;
 use mlua::{LuaSerdeExt, *};
 use notify::{recommended_watcher, Watcher};
 use std::sync::{mpsc, Arc, Mutex};
@@ -15,27 +14,38 @@ pub struct LuaPlugin;
 impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SandyLua>()
-            .init_state::<CodeShow>()
-            .init_resource::<Corpus>()
+            .init_resource::<EvalTable>()
+            //.init_state::<CodeShow>()
+            //.init_resource::<Corpus>()
             .init_resource::<CorpusPath>()
             .init_resource::<CorpusWatcherRx>()
             .init_resource::<CorpusWatcher>()
             .add_event::<ReloadCorpus>()
-            .add_systems(Update, (code_show).run_if(in_state(CodeShow(true))))
-            .add_systems(StateTransition, code_show_transition)
-            .add_systems(Update, (corpus_path_updated, corpus_hot_reload,load_file))
-            .add_systems(Update, (despawn_chromes).after(load_file))
-            .add_systems(Update, (eval_corpus).after(despawn_chromes))
+            //.add_systems(Update, (code_show).run_if(in_state(CodeShow(true))))
+            //.add_systems(StateTransition, code_show_transition)
+            //.add_systems(Update, (corpus_path_updated, update_watcher, corpus_hot_reload).chain())
+            //.add_systems(Update, (despawn_chromes).after(update_watcher))
+            //.add_systems(Update, (eval_corpus).after(despawn_chromes))
+            .add_systems(Update,(
+                    corpus_path_updated,
+                    update_watcher,
+                    corpus_hot_reload,
+                    despawn_chromes,
+                    eval_corpus,
+                    sandy_runner,
+                    sandy_func,
+                    sandy_spawn_chrome,
+            ).chain())
             // --
             ;
     }
 }
 
 #[derive(Debug, Resource, Deref, Default)]
-pub struct CorpusPath(pub std::path::PathBuf);
+pub struct CorpusPath(pub Option<std::path::PathBuf>);
 
-#[derive(Debug, Default, Resource, Deref)]
-pub struct Corpus(std::string::String);
+//#[derive(Debug, Default, Resource, Deref)]
+//pub struct Corpus(std::string::String);
 
 #[derive(Debug, Default, Resource, Deref)]
 pub struct CorpusWatcherRx(Option<Arc<Mutex<mpsc::Receiver<notify::Result<notify::Event>>>>>);
@@ -47,6 +57,8 @@ pub struct ReloadCorpus;
 
 #[derive(Debug, Default, Resource, Deref)]
 pub struct SandyLua(pub Lua);
+#[derive(Debug, Default, Resource, Deref)]
+pub struct EvalTable(pub Option<mlua::Table>);
 
 impl SandyLua {
     pub fn new() -> SandyLua {
@@ -65,120 +77,125 @@ impl SandyLua {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, States, Default)]
-struct CodeShow(bool);
+//#[derive(Debug, Clone, PartialEq, Eq, Hash, States, Default)]
+//struct CodeShow(bool);
 
-fn code_show(mut ctx: EguiContexts, corpus: Res<Corpus>) {
-    egui::Window::new("Code")
-        .default_open(true)
-        .default_size([500.0, 500.0])
-        .default_pos([300.0, 20.0])
-        .vscroll(true)
-        .resizable(true)
-        .show(ctx.ctx_mut(), |ui| {
-            let language = "lua";
-            let theme =
-                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
-            egui_extras::syntax_highlighting::code_view_ui(ui, &theme, &corpus.0.clone(), language);
-        });
-}
+//fn code_show(mut ctx: EguiContexts, corpus: Res<Corpus>) {
+//    egui::Window::new("Code")
+//        .default_open(true)
+//        .default_size([500.0, 500.0])
+//        .default_pos([300.0, 20.0])
+//        .vscroll(true)
+//        .resizable(true)
+//        .show(ctx.ctx_mut(), |ui| {
+//            let language = "lua";
+//            let theme =
+//                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
+//            egui_extras::syntax_highlighting::code_view_ui(ui, &theme, &corpus.0.clone(), language);
+//        });
+//}
 
-fn code_show_transition(
-    show: Res<State<CodeShow>>,
-    mut next: ResMut<NextState<CodeShow>>,
-    keys: Res<ButtonInput<KeyCode>>,
-) {
-    if keys.just_pressed(KeyCode::KeyB) && keys.pressed(KeyCode::ControlLeft) {
-        next.set(CodeShow(!show.0));
-    }
-}
+//fn code_show_transition(
+//    show: Res<State<CodeShow>>,
+//    mut next: ResMut<NextState<CodeShow>>,
+//    keys: Res<ButtonInput<KeyCode>>,
+//) {
+//    if keys.just_pressed(KeyCode::KeyB) && keys.pressed(KeyCode::ControlLeft) {
+//        next.set(CodeShow(!show.0));
+//    }
+//}
 
-fn load_file(
-    mut corpus: ResMut<Corpus>,
+fn update_watcher(
+    //mut corpus: ResMut<Corpus>,
     corpus_path: Res<CorpusPath>,
-    mut reload: EventReader<ReloadCorpus>,
     mut corpus_watcher_rx: ResMut<CorpusWatcherRx>,
     mut corpus_watcher: ResMut<CorpusWatcher>,
 ) {
-    if reload.read().count() == 0 {
+    if !corpus_path.is_changed() {
         return;
     }
-    match std::fs::read_to_string(corpus_path.0.clone()) {
-        Ok(content) => {
-            *corpus = Corpus(content);
-            let mut dir = corpus_path.clone();
-            dir.pop();
-            std::env::set_current_dir(&dir).unwrap();
+    let mut dir = match &corpus_path.0 {
+        Some(p) => p.clone(),
+        None => return,
+    };
+    dir.pop();
+    println!("watching : {:?}", dir);
+    std::env::set_current_dir(&dir).unwrap();
 
-            let (tx, rx) = mpsc::channel();
-            let mut watcher = recommended_watcher(tx).unwrap();
-            watcher
-                .watch(dir.as_path(), notify::RecursiveMode::Recursive)
-                .unwrap();
-            *corpus_watcher = CorpusWatcher(Some(watcher));
-            *corpus_watcher_rx = CorpusWatcherRx(Some(Arc::new(Mutex::new(rx))));
-        }
-        Err(e) => {
-            CONSOLE_CHANNEL.send(format!("{:#?}", e));
-        }
-    }
+    let (tx, rx) = mpsc::channel();
+    let mut watcher = recommended_watcher(tx).unwrap();
+    watcher
+        .watch(dir.as_path(), notify::RecursiveMode::Recursive)
+        .unwrap();
+    *corpus_watcher = CorpusWatcher(Some(watcher));
+    *corpus_watcher_rx = CorpusWatcherRx(Some(Arc::new(Mutex::new(rx))));
 }
 
 fn corpus_path_updated(corpus_path: Res<CorpusPath>, mut reload: EventWriter<ReloadCorpus>) {
-    if corpus_path.is_changed() && !corpus_path.is_added() && corpus_path.is_file() {
-        reload.send(ReloadCorpus);
+    if !corpus_path.is_changed() || corpus_path.is_added() {
+        return;
+    }
+    if let Some(p) = &corpus_path.0 {
+        if p.is_file() {
+            reload.send(ReloadCorpus);
+        }
     }
 }
 
 fn corpus_hot_reload(corpus_watch: Res<CorpusWatcherRx>, mut reload: EventWriter<ReloadCorpus>) {
-    match &corpus_watch.0 {
-        None => {}
-        Some(rx) => {
-            let rx = rx.lock().unwrap();
-            loop {
-                match rx.try_recv() {
-                    Ok(msg) => match msg {
-                        Ok(e) => {
-                            if let notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) =
-                                e.kind
-                            {
-                                reload.send(ReloadCorpus);
-                            }
-                        }
-                        Err(e) => {
-                            println!("{:#?}", e);
-                        }
-                    },
-                    Err(mpsc::TryRecvError::Empty) => {
-                        break;
-                    }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        unreachable!("Unexpected closure of watcher channel")
+    let rx = match &corpus_watch.0 {
+        None => return,
+        Some(rx) => rx,
+    };
+    let rx = rx.lock().unwrap();
+
+    loop {
+        match rx.try_recv() {
+            Ok(msg) => match msg {
+                Ok(e) => {
+                    if let notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) = e.kind {
+                        reload.send(ReloadCorpus);
                     }
                 }
+                Err(e) => {
+                    println!("{:#?}", e);
+                }
+            },
+            Err(mpsc::TryRecvError::Empty) => {
+                break;
+            }
+            Err(mpsc::TryRecvError::Disconnected) => {
+                unreachable!("Unexpected closure of watcher channel")
             }
         }
-    };
+    }
 }
 
 fn eval_corpus(
     mut cmd: Commands,
-    mut meshs: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    corpus: Res<Corpus>,
+    mut reload: EventReader<ReloadCorpus>,
+    corpus_path: Res<CorpusPath>,
+    mut eval_table: ResMut<EvalTable>,
+    //mut meshs: ResMut<Assets<Mesh>>,
+    //mut materials: ResMut<Assets<StandardMaterial>>,
     mut lua: ResMut<SandyLua>,
-    mut runner: ResMut<runner::Runner>,
-    mut on_start: ResMut<dance::DanceOnStart>,
-    mut on_tick: ResMut<dance::DanceOnTick>,
-    mut event: EventWriter<runner::RunnerEvent>,
+    //mut runner: ResMut<runner::Runner>,
+    //mut on_start: ResMut<dance::DanceOnStart>,
+    //mut on_tick: ResMut<dance::DanceOnTick>,
+    //mut event: EventWriter<runner::RunnerEvent>,
 ) {
-    if !corpus.is_changed() || corpus.is_added() {
+    if reload.read().count() == 0 {
         return;
     } //println!("evaling");
     *lua = SandyLua::new();
 
-    let table = match lua.0.load(corpus.clone()).eval::<Table>() {
-        Ok(table) => table,
+    let corpus_path = match &corpus_path.0 {
+        Some(p) => p.clone(),
+        None => return,
+    };
+
+    *eval_table = match lua.0.load(corpus_path).eval::<Table>() {
+        Ok(table) => EvalTable(Some(table)),
         Err(Error::RuntimeError(s)) => {
             console::CONSOLE_CHANNEL.send("Runtime Error!");
             console::CONSOLE_CHANNEL.send(s);
@@ -198,17 +215,61 @@ fn eval_corpus(
             return;
         }
     };
-    *runner = lua
-        .from_value(table.get("runner").unwrap_or(Value::Nil))
-        .unwrap_or_default();
-    runner.timer = Timer::new(
-        std::time::Duration::from_millis(runner.ms_per_tick),
-        TimerMode::Repeating,
-    );
+}
 
-    *on_start = dance::DanceOnStart(table.get("on_start").ok());
-    *on_tick = dance::DanceOnTick(table.get("on_tick").ok());
-    event.send(runner::RunnerEvent::Restarted);
+fn sandy_runner(
+    mut reload: EventReader<ReloadCorpus>,
+    table: Res<EvalTable>,
+    mut runner: ResMut<runner::Runner>,
+    mut event: EventWriter<runner::RunnerEvent>,
+    lua: Res<SandyLua>,
+) {
+    if reload.read().count() == 0 {
+        return;
+    }
+    if let Some(table) = &table.0 {
+        *runner = lua
+            .from_value(table.get("runner").unwrap_or(Value::Nil))
+            .unwrap_or_default();
+        runner.timer = Timer::new(
+            std::time::Duration::from_millis(runner.ms_per_tick),
+            TimerMode::Repeating,
+        );
+        event.send(runner::RunnerEvent::Restarted);
+    }
+}
+
+fn sandy_func(
+    mut reload: EventReader<ReloadCorpus>,
+    table: Res<EvalTable>,
+    mut on_start: ResMut<dance::DanceOnStart>,
+    mut on_tick: ResMut<dance::DanceOnTick>,
+) {
+    if reload.read().count() == 0 {
+        return;
+    }
+    if let Some(table) = &table.0 {
+        *on_start = dance::DanceOnStart(table.get("on_start").ok());
+        *on_tick = dance::DanceOnTick(table.get("on_tick").ok());
+    }
+}
+
+fn sandy_spawn_chrome(
+    mut reload: EventReader<ReloadCorpus>,
+    mut cmd: Commands,
+    table: Res<EvalTable>,
+    mut meshs: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    lua: Res<SandyLua>,
+) {
+    if reload.read().count() == 0 {
+        return;
+    }
+
+    let table = match &table.0 {
+        Some(t) => t,
+        None => return,
+    };
 
     let chromes: Table = table.get("chromes").unwrap_or(lua.create_table().unwrap());
 
@@ -249,9 +310,9 @@ fn despawn_chromes(
     mut cmd: Commands,
     query: Query<Entity, With<chrome::Chrome>>,
     children: Query<&Children>,
-    corpus: Res<Corpus>,
+    mut reload: EventReader<ReloadCorpus>,
 ) {
-    if !corpus.is_changed() {
+    if reload.read().count() == 0 {
         return;
     }
     //println!("despwning");

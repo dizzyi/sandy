@@ -31,15 +31,14 @@ local chrome_1 = {
 		Plotter.push("Chrome 1 x coord", x)
 		Plotter.push("Chrome 1 z coord", z)
 		-- Plotter.push("Chrome 1 r coord", math.sqrt(z * z + x * x + y * y));
-		return Transform.from_xyz({
-			z = z,
-			x = x,
-			y = y,
-		})
-	end,
+		--   local vec = Vec.new({x=x,y=y,z=z});
+		--   local rot = Rot.from_rx(t * 0.6);
+		-- return Transform.from_vec_rot(vec, rot);
+    return Transform.from_xyz({x=x,y=y,z=z});
+  end,
 	parts = {
 		{
-			mesh = Mesh.sphere(1.0),
+			mesh = Mesh.cuboid(2.0),
 			material = {
 				color = Color.rgba({ green = 0.8, blue = 0.1, alpha = 1 }),
 			},
