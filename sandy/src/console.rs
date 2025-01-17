@@ -1,26 +1,40 @@
 use crate::*;
+use bevy::reflect::List;
 use lua::{LuaChip, SandyLua};
 
 pub struct ConsolePlugin;
 
-pub static CONSOLE_CHANNEL: channel::LazyChannel<String> = channel::lazy_channel!();
+#[derive(Debug, Clone)]
+pub enum ConsoleMsg {
+    Log(String),
+    Clear,
+}
+
+pub fn console_log(msg: impl Into<String>) {
+    CONSOLE_CHANNEL.send(ConsoleMsg::Log(msg.into()));
+}
+pub fn console_clear() {
+    CONSOLE_CHANNEL.send(ConsoleMsg::Clear);
+}
+
+static CONSOLE_CHANNEL: channel::LazyChannel<ConsoleMsg> = channel::lazy_channel!();
 
 impl Plugin for ConsolePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Console>()
             .init_state::<ConsoleShow>()
             .add_systems(Update, console_update)
-            .add_systems(Update, (console_show).run_if(in_state(ConsoleShow::Show)));
+            .add_systems(Update, (console_show).run_if(in_state(ConsoleShow(true))));
     }
 }
 
-#[derive(States, Debug, Clone, Default, PartialEq, Eq, Hash)]
-pub enum ConsoleShow {
-    #[default]
-    Show,
-    Hidden,
+#[derive(States, Debug, Clone, PartialEq, Eq, Hash)]
+struct ConsoleShow(bool);
+impl Default for ConsoleShow {
+    fn default() -> Self {
+        ConsoleShow(true)
+    }
 }
-
 #[derive(Debug, Resource, Default, Deref)]
 pub struct Console {
     entry: std::collections::VecDeque<String>,
@@ -31,15 +45,23 @@ impl LuaChip for ConsoleChip {
     fn build(&self, lua: &mut SandyLua) {
         let console = lua.create_table().unwrap();
 
-        let print = {
-            let ch = CONSOLE_CHANNEL.clone();
-            lua.create_function(move |_, msg: mlua::String| {
-                ch.send(msg.to_string_lossy());
+        let print = lua
+            .create_function(move |_, msg: mlua::Value| {
+                console_log(
+                    msg.to_string()
+                        .unwrap_or("cannot convert value to string".to_string()),
+                );
                 Ok(())
             })
-            .unwrap()
-        };
+            .unwrap();
         console.set("print", print).unwrap();
+        let clear = lua
+            .create_function(|_, ()| {
+                console_clear();
+                Ok(())
+            })
+            .unwrap();
+        console.set("clear", clear).unwrap();
 
         lua.globals().set("Console", console).unwrap();
     }
@@ -48,9 +70,14 @@ impl LuaChip for ConsoleChip {
 //fn console_update(mut console: ResMut<Console>, rx: ResMut<ConsoleRx>) {
 fn console_update(mut console: ResMut<Console>) {
     while let Some(msg) = CONSOLE_CHANNEL.read() {
-        console.entry.push_back(msg);
-        if console.entry.len() > 1000 {
-            console.entry.pop_front();
+        match msg {
+            ConsoleMsg::Log(s) => {
+                console.entry.push_back(s);
+                if console.entry.len() > 1000 {
+                    console.entry.pop_front();
+                }
+            }
+            ConsoleMsg::Clear => console.entry.clear(),
         }
     }
 }

@@ -1,6 +1,5 @@
 local sandy = {};
 
-
 ---Construct a new dance config
 ---@return Dance
 function sandy.new_dance()
@@ -25,7 +24,5 @@ function sandy.new_runner()
   };
   return runner
 end
-
-
 
 return sandy;

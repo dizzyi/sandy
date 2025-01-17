@@ -16,7 +16,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraCoord>()
             .add_systems(Startup, camera_setup)
-            .add_systems(Update, (gamepad_sys, camera_event))
+            .add_systems(Update, (camera_keyboard, gamepad_sys, camera_event))
             .add_systems(Update, camera_update);
     }
 }
@@ -141,6 +141,30 @@ pub fn camera_update(camcoord: Res<CameraCoord>, mut cam: Query<&mut ZTransform,
 pub fn camera_event(mut camcoord: ResMut<CameraCoord>) {
     while let Some(e) = CAMERA_CHANNEL.read() {
         camcoord.read_event(&e);
+    }
+}
+
+fn camera_keyboard(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>) {
+    let mut delta = time.delta_secs() * 10.0;
+    if keys.pressed(KeyCode::ShiftLeft) {
+        delta *= 5.0;
+    }
+    let camera_key_map = &[
+        (KeyCode::KeyW, CameraEvent::North(-delta)),
+        (KeyCode::KeyA, CameraEvent::East(-delta)),
+        (KeyCode::KeyS, CameraEvent::North(delta)),
+        (KeyCode::KeyD, CameraEvent::East(delta)),
+        (KeyCode::KeyE, CameraEvent::Forward(delta)),
+        (KeyCode::KeyQ, CameraEvent::Forward(-delta)),
+    ];
+
+    for (k, e) in camera_key_map {
+        if keys.pressed(*k) {
+            CAMERA_CHANNEL.send(e.clone());
+        }
+    }
+    if keys.just_pressed(KeyCode::KeyR) {
+        CAMERA_CHANNEL.send(CameraEvent::Switch);
     }
 }
 

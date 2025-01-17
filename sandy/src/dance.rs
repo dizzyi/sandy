@@ -1,8 +1,9 @@
+use console::console_log;
 use mlua::{LuaSerdeExt, ObjectLike};
 
 use channel::{lazy_channel, LazyChannel};
 use chrome::{Chrome, ChromeMaterial};
-use runner::RunnerEvent;
+use runner::TickEvent;
 use ztransform::{ZBundle, ZTransform};
 
 use crate::*;
@@ -29,44 +30,40 @@ pub struct DanceOnStart(pub Option<mlua::Function>);
 #[derive(Clone, Debug, Resource, Default)]
 pub struct DanceOnTick(pub Option<mlua::Function>);
 
-fn dance_on_start(on_start: Res<DanceOnStart>, mut event: EventReader<RunnerEvent>) {
+fn dance_on_start(on_start: Res<DanceOnStart>, mut event: EventReader<TickEvent>) {
     for e in event.read() {
-        match e {
-            RunnerEvent::Restarted | RunnerEvent::Tick(0) => {
-                if let Some(f) = &on_start.0 {
-                    f.call::<()>(()).unwrap();
-                }
+        if e.0 == 0 {
+            if let Some(f) = &on_start.0 {
+                f.call::<()>(()).unwrap();
             }
-            _ => {}
         }
     }
 }
-fn dance_on_tick(on_tick: Res<DanceOnTick>, mut event: EventReader<RunnerEvent>) {
+fn dance_on_tick(on_tick: Res<DanceOnTick>, mut event: EventReader<TickEvent>) {
     if let Some(on_tick) = &on_tick.0 {
         for e in event.read() {
-            let tick = match e {
-                RunnerEvent::Restarted => 0,
-                RunnerEvent::Tick(t) => *t,
-            };
-            on_tick.call::<()>(tick).unwrap();
+            let tick = e.0;
+            if let Err(e) = on_tick.call::<()>(tick) {
+                console_log("on_start function error:");
+                console_log(format!("{:?}", e));
+            }
         }
     }
 }
 
 fn dance_chrome_on_tick(
     mut query: Query<(&mut ZTransform, &Chrome)>,
-    mut event: EventReader<RunnerEvent>,
+    mut event: EventReader<TickEvent>,
 ) {
     for e in event.read() {
-        let tick = match e {
-            RunnerEvent::Tick(tick) => *tick,
-            RunnerEvent::Restarted => 0,
-        };
+        let tick = e.0;
         for mut c in query.iter_mut() {
             *c.0 = match c.1.on_tick.call(tick) {
                 Ok(t) => t,
                 Err(e) => {
                     println!("{:?}", e);
+                    console_log("on_tick function error:");
+                    console_log(format!("{:?}", e));
                     ZTransform(Transform::IDENTITY)
                 }
             }
@@ -80,15 +77,12 @@ pub struct AfterImage;
 fn dance_after_image_clear(
     mut cmd: Commands,
     query: Query<Entity, With<AfterImage>>,
-    mut event: EventReader<RunnerEvent>,
+    mut event: EventReader<TickEvent>,
 ) {
     let mut trigger = false;
     for e in event.read() {
-        match e {
-            RunnerEvent::Restarted | RunnerEvent::Tick(0) => {
-                trigger = true;
-            }
-            _ => {}
+        if e.0 == 0 {
+            trigger = true;
         }
     }
     if !trigger {

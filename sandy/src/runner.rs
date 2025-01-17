@@ -1,13 +1,25 @@
+use channel::{lazy_channel, LazyChannel};
+use lua::LuaChip;
+use mlua::ObjectLike;
+
 use crate::*;
 
 pub struct RunnerPlugin;
 
+#[derive(Debug, Clone)]
+pub enum RunnerMsg {
+    Run(bool),
+    Restart,
+}
+
+static RUNNER_CHANNEL: LazyChannel<RunnerMsg> = lazy_channel!();
+
 impl Plugin for RunnerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Runner>()
-            .add_event::<RunnerEvent>()
+            .add_event::<TickEvent>()
             .init_state::<RunnerShow>()
-            .add_systems(Update, runner_update)
+            .add_systems(Update, (runner_keyboard, runner_channel, runner_update))
             .add_systems(Update, (runner_show).run_if(in_state(RunnerShow(true))))
             .add_systems(StateTransition, runner_state_transition)
             //.add_systems(Update, runner_event_listen)
@@ -16,21 +28,11 @@ impl Plugin for RunnerPlugin {
     }
 }
 
-//#[derive(Debug, Clone, States, Default, PartialEq, Eq, Hash)]
-//pub enum RunnerShow {
-//    #[default]
-//    Show,
-//    Hidden,
-//}
-
 #[derive(Debug, Clone, States, Default, PartialEq, Eq, Hash)]
 pub struct RunnerShow(bool);
 
 #[derive(Debug, Clone, Event)]
-pub enum RunnerEvent {
-    Tick(u64),
-    Restarted,
-}
+pub struct TickEvent(pub u64);
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 pub enum RunnerMode {
@@ -63,7 +65,38 @@ impl Default for Runner {
     }
 }
 
-fn runner_update(time: Res<Time>, mut runner: ResMut<Runner>, mut event: EventWriter<RunnerEvent>) {
+pub struct RunnerChip;
+
+impl LuaChip for RunnerChip {
+    fn build(&self, lua: &mut lua::SandyLua) {
+        let runner = lua.create_table().unwrap();
+
+        let run = lua
+            .create_function(|_, b: bool| {
+                RUNNER_CHANNEL.send(RunnerMsg::Run(b));
+                Ok(())
+            })
+            .unwrap();
+        runner.set("run", run).unwrap();
+
+        lua.globals().set("Runner", runner).unwrap();
+    }
+}
+
+fn runner_channel(mut runner: ResMut<Runner>, mut event: EventWriter<TickEvent>) {
+    while let Some(msg) = RUNNER_CHANNEL.read() {
+        match msg {
+            RunnerMsg::Run(b) => {
+                runner.running = b;
+            }
+            RunnerMsg::Restart => {
+                event.send(TickEvent(0));
+            }
+        }
+    }
+}
+
+fn runner_update(time: Res<Time>, mut runner: ResMut<Runner>, mut event: EventWriter<TickEvent>) {
     if !runner.running {
         return;
     }
@@ -79,20 +112,20 @@ fn runner_update(time: Res<Time>, mut runner: ResMut<Runner>, mut event: EventWr
 
     runner.tick += 1;
     if runner.tick < runner.max_tick {
-        event.send(RunnerEvent::Tick(runner.tick));
+        event.send(TickEvent(runner.tick));
     } else if runner.mode == RunnerMode::Repeat {
         runner.tick = 0;
-        event.send(RunnerEvent::Restarted);
+        event.send(TickEvent(0));
     } else {
         runner.running = false;
     }
 }
 
-//fn runner_event_listen(mut event: EventReader<RunnerEvent>) {
-//    for i in event.read() {
-//        println!("{:?}", i);
-//    }
-//}
+fn runner_keyboard(mut runner: ResMut<Runner>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(KeyCode::Space) {
+        runner.running = !runner.running;
+    }
+}
 
 fn runner_state_transition(
     show: Res<State<RunnerShow>>,

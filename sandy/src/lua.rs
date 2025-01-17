@@ -1,5 +1,6 @@
 use crate::*;
 
+use console::*;
 use mlua::{LuaSerdeExt, *};
 use notify::{recommended_watcher, Watcher};
 use std::sync::{mpsc, Arc, Mutex};
@@ -8,9 +9,7 @@ use ztransform::ZBundle;
 pub trait LuaChip {
     fn build(&self, lua: &mut SandyLua);
 }
-
 pub struct LuaPlugin;
-
 impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SandyLua>()
@@ -69,6 +68,7 @@ impl SandyLua {
             .add_chip(chrome::MeshChip)
             .add_chip(ztransform::GeometryChip)
             .add_chip(plotter::PlotterChip)
+            .add_chip(runner::RunnerChip)
             .add_chip(dance::DanceChip)
     }
     pub fn add_chip(mut self, chip: impl LuaChip) -> Self {
@@ -172,17 +172,10 @@ fn corpus_hot_reload(corpus_watch: Res<CorpusWatcherRx>, mut reload: EventWriter
 }
 
 fn eval_corpus(
-    mut cmd: Commands,
     mut reload: EventReader<ReloadCorpus>,
     corpus_path: Res<CorpusPath>,
     mut eval_table: ResMut<EvalTable>,
-    //mut meshs: ResMut<Assets<Mesh>>,
-    //mut materials: ResMut<Assets<StandardMaterial>>,
     mut lua: ResMut<SandyLua>,
-    //mut runner: ResMut<runner::Runner>,
-    //mut on_start: ResMut<dance::DanceOnStart>,
-    //mut on_tick: ResMut<dance::DanceOnTick>,
-    //mut event: EventWriter<runner::RunnerEvent>,
 ) {
     if reload.read().count() == 0 {
         return;
@@ -197,21 +190,20 @@ fn eval_corpus(
     *eval_table = match lua.0.load(corpus_path).eval::<Table>() {
         Ok(table) => EvalTable(Some(table)),
         Err(Error::RuntimeError(s)) => {
-            console::CONSOLE_CHANNEL.send("Runtime Error!");
-            console::CONSOLE_CHANNEL.send(s);
+            console_log("Runtime Error!");
+            console_log(s);
             return;
         }
         Err(Error::FromLuaConversionError { from, to, message }) => {
-            console::CONSOLE_CHANNEL.send("Conversion Error");
-            console::CONSOLE_CHANNEL.send(format!("from : {:?}", from));
-            console::CONSOLE_CHANNEL.send(format!("to   : {:?}", to));
-            console::CONSOLE_CHANNEL.send(format!("msg  : {:?}", message));
-            console::CONSOLE_CHANNEL
-                .send("Please make sure that your lua script return a proper Dance table.");
+            console_log("Conversion Error");
+            console_log(format!("from : {:?}", from));
+            console_log(format!("to   : {:?}", to));
+            console_log(format!("msg  : {:?}", message));
+            console_log("Please make sure that your lua script return a proper Dance table.");
             return;
         }
         Err(e) => {
-            console::CONSOLE_CHANNEL.send(format!("{:#?}", e));
+            console_log(format!("{:#?}", e));
             return;
         }
     };
@@ -221,7 +213,7 @@ fn sandy_runner(
     mut reload: EventReader<ReloadCorpus>,
     table: Res<EvalTable>,
     mut runner: ResMut<runner::Runner>,
-    mut event: EventWriter<runner::RunnerEvent>,
+    mut event: EventWriter<runner::TickEvent>,
     lua: Res<SandyLua>,
 ) {
     if reload.read().count() == 0 {
@@ -235,7 +227,7 @@ fn sandy_runner(
             std::time::Duration::from_millis(runner.ms_per_tick),
             TimerMode::Repeating,
         );
-        event.send(runner::RunnerEvent::Restarted);
+        event.send(runner::TickEvent(0));
     }
 }
 

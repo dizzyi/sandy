@@ -65,12 +65,16 @@ impl ZTransform {
             Transform::from_translation(vec.0).with_rotation(rot.0),
         ))
     }
+    fn lua_meta_mul(_lua: &mlua::Lua, this: &Self, other: Self) -> Result<Self, mlua::Error> {
+        Ok(ZTransform(this.0 * other.0))
+    }
 }
 
 impl mlua::UserData for ZTransform {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("from_xyz", ZTransform::lua_from_xyz);
         methods.add_function("from_vec_rot", ZTransform::lua_from_vec_rot);
+        methods.add_meta_method(mlua::MetaMethod::Mul, ZTransform::lua_meta_mul);
     }
 }
 
@@ -101,6 +105,10 @@ impl ZVec3 {
                 let y = table.get("y").unwrap_or_default();
                 let z = table.get("z").unwrap_or_default();
                 Self(Vec3::new(x, y, z))
+            }
+            mlua::Value::UserData(any) => {
+                let t: mlua::UserDataRef<ZVec3> = any.borrow()?;
+                t.clone()
             }
             _ => Self(Vec3::ZERO),
         };
@@ -150,11 +158,9 @@ impl mlua::FromLua for ZQuat {
                 let t: mlua::UserDataRef<ZQuat> = any.borrow()?;
                 Ok(t.clone())
             }
-            _ => Err(mlua::Error::FromLuaConversionError {
-                from: "Transform",
-                to: format!("{:?}", value),
-                message: None,
-            }),
+            _ => Err(mlua::Error::runtime(
+                "Fail to convert lua value to Rotation",
+            )),
         }
     }
 }

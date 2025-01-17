@@ -1,4 +1,4 @@
-use std::path::*;
+use std::{ops::Deref, path::*, str::FromStr};
 
 use lua::CorpusPath;
 
@@ -18,17 +18,62 @@ use crate::*;
 //    .collect()
 //}
 
-#[derive(Debug, States, Clone, PartialEq, Eq, Hash, Default)]
-enum ConfigShow {
-    #[default]
-    Show,
-    Hidden,
+#[derive(Debug, States, Clone, PartialEq, Eq, Hash)]
+struct ConfigShow(bool);
+
+impl Default for ConfigShow {
+    fn default() -> Self {
+        ConfigShow(true)
+    }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct FilePicker {
-    pub opened_file: Option<std::path::PathBuf>,
+    pub open_dir: std::path::PathBuf,
     pub open_file_dialog: Option<FileDialog>,
+}
+
+static CONFIG_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    let dir = dirs::config_dir().unwrap().join("sandy");
+    if !dir.is_dir() {
+        std::fs::create_dir_all(&dir).unwrap();
+    }
+    dir
+});
+static CONFIG_OPEN_DIR: LazyLock<PathBuf> = LazyLock::new(|| CONFIG_DIR.join(".open_dir"));
+
+impl Default for FilePicker {
+    fn default() -> Self {
+        let open_dir = match std::fs::read_to_string(&*CONFIG_OPEN_DIR) {
+            Ok(p) => PathBuf::from_str(&p).unwrap(),
+            Err(e) => {
+                warn!("Failed to read {:?} : {:?}", CONFIG_OPEN_DIR, e);
+                let dir = std::env::current_dir().unwrap();
+                FilePicker::write_open_dir(&dir);
+                dir
+            }
+        };
+
+        FilePicker {
+            open_dir,
+            open_file_dialog: None,
+        }
+    }
+}
+impl FilePicker {
+    fn write_open_dir(dir: &Path) {
+        use std::io::Write;
+        let buf = dir.to_str().unwrap().to_string();
+        let buf = buf.as_bytes();
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&*CONFIG_OPEN_DIR)
+            .unwrap();
+        println!("writing {:?} : {:?}", CONFIG_OPEN_DIR, dir);
+        f.write_all(buf).unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -36,24 +81,14 @@ pub struct ConfigPlugin;
 
 impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SandyConfig>()
+        app
         .init_state::<ConfigShow>()
         //.add_event::<ConfigEvent>()
-        .add_systems(Update, (menu_egui).run_if(in_state(ConfigShow::Show)))
+        .add_systems(Update, (menu_egui).run_if(in_state(ConfigShow(true))))
         .init_resource::<FilePicker>()
         // -- 
         ;
     }
-}
-
-//#[derive(Debug, Clone, Event)]
-//pub enum ConfigEvent {
-//    SelectedFile(std::path::PathBuf),
-//}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default, Resource)]
-pub struct SandyConfig {
-    projects: Vec<PathBuf>,
 }
 
 fn menu_egui(
@@ -76,24 +111,30 @@ fn menu_egui(
             //    ui.label(format!("{:?}", d));
             //}
 
-            let open_btn = ui.button("open");
+            let open_btn = ui.button("open lua file");
             if open_btn.clicked() {
                 let filter = Box::new({
                     let ext = Some(std::ffi::OsStr::new("lua"));
                     move |path: &std::path::Path| -> bool { path.extension() == ext }
                 });
-                let mut dialog =
-                    FileDialog::open_file(std::env::current_dir().ok()).show_files_filter(filter);
+                let mut dialog = FileDialog::open_file(Some(file_picker.open_dir.clone()))
+                    .show_files_filter(filter);
                 dialog.open();
                 file_picker.open_file_dialog = Some(dialog);
             }
-
+            let mut open_dir = file_picker.open_dir.clone();
             if let Some(dialog) = &mut file_picker.open_file_dialog {
                 if dialog.show(ui.ctx()).selected() {
                     if let Some(file) = dialog.path() {
                         *corpus_path = lua::CorpusPath(Some(file.to_path_buf()));
                     }
+                    let curr_dir = dialog.directory();
+                    if curr_dir != open_dir {
+                        FilePicker::write_open_dir(dialog.directory());
+                        open_dir = curr_dir.to_path_buf();
+                    }
                 }
             }
+            file_picker.open_dir = open_dir;
         });
 }
