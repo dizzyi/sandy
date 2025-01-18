@@ -16,9 +16,6 @@ impl Plugin for DancePlugin {
             .init_resource::<DanceOnStart>()
             .init_resource::<DanceOnTick>()
             // --
-            //.add_systems(Update, dance_on_start)
-            //.add_systems(Update, dance_on_tick)
-            //.add_systems(Update, dance_tick)
             .add_systems(Update, (dance_after_image_clear,dance_on_start, dance_on_tick, dance_chrome_on_tick, dance_after_image).chain())
             // --
             ;

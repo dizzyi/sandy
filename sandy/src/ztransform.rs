@@ -68,6 +68,18 @@ impl ZTransform {
     fn lua_meta_mul(_lua: &mlua::Lua, this: &Self, other: Self) -> Result<Self, mlua::Error> {
         Ok(ZTransform(this.0 * other.0))
     }
+    fn lua_get_x(_lua: &mlua::Lua, this: &Self, _: ()) -> Result<mlua::Value, mlua::Error> {
+        let f = this.0.translation.x;
+        Ok(mlua::Value::Number(f as f64))
+    }
+    fn lua_get_y(_lua: &mlua::Lua, this: &Self, _: ()) -> Result<mlua::Value, mlua::Error> {
+        let f = this.0.translation.y;
+        Ok(mlua::Value::Number(f as f64))
+    }
+    fn lua_get_z(_lua: &mlua::Lua, this: &Self, _: ()) -> Result<mlua::Value, mlua::Error> {
+        let f = this.0.translation.z;
+        Ok(mlua::Value::Number(f as f64))
+    }
 }
 
 impl mlua::UserData for ZTransform {
@@ -75,6 +87,9 @@ impl mlua::UserData for ZTransform {
         methods.add_function("from_xyz", ZTransform::lua_from_xyz);
         methods.add_function("from_vec_rot", ZTransform::lua_from_vec_rot);
         methods.add_meta_method(mlua::MetaMethod::Mul, ZTransform::lua_meta_mul);
+        methods.add_method("get_x", ZTransform::lua_get_x);
+        methods.add_method("get_y", ZTransform::lua_get_y);
+        methods.add_method("get_z", ZTransform::lua_get_z);
     }
 }
 

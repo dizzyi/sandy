@@ -1,6 +1,5 @@
 use channel::{lazy_channel, LazyChannel};
 use lua::LuaChip;
-use mlua::ObjectLike;
 
 use crate::*;
 
@@ -22,7 +21,6 @@ impl Plugin for RunnerPlugin {
             .add_systems(Update, (runner_keyboard, runner_channel, runner_update))
             .add_systems(Update, (runner_show).run_if(in_state(RunnerShow(true))))
             .add_systems(StateTransition, runner_state_transition)
-            //.add_systems(Update, runner_event_listen)
             // -- 
             ;
     }
@@ -121,9 +119,16 @@ fn runner_update(time: Res<Time>, mut runner: ResMut<Runner>, mut event: EventWr
     }
 }
 
-fn runner_keyboard(mut runner: ResMut<Runner>, keys: Res<ButtonInput<KeyCode>>) {
+fn runner_keyboard(
+    mut runner: ResMut<Runner>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut event: EventWriter<TickEvent>,
+) {
     if keys.just_pressed(KeyCode::Space) {
         runner.running = !runner.running;
+    }
+    if keys.just_pressed(KeyCode::F5) {
+        event.send(TickEvent(0));
     }
 }
 

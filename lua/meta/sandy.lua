@@ -17,6 +17,8 @@ Console = {}
 ---Print a log message to the console
 ---@param msg string
 function Console.print(msg) end
+---clear all message in console
+function Console.clear() end
 
 ---API for plotting
 Plotter = {}
@@ -45,8 +47,7 @@ function Plotter.aspect(aspect) end
 ---@field on_tick? fun(tick:integer):nil
 
 ---API for adding after image in the engine
-Dance = {}
----When call, it will spawn after image with given material for all chromes
+Dance = {} ---When call, it will spawn after image with given material for all chromes
 ---multiple call within in one tick will only result in one after image
 ---@param material Material
 function Dance.after_image(material) end
@@ -162,10 +163,13 @@ function Mesh.capsule_prism(capsule_prism) end
 ---It define a spatial transform,
 ---composed from a translation and rotation.
 ---
----it is not a lua table, 
+---it is not a lua table,
 ---you need to construct it with sandy buildin function
 ---@class Transform
 ---@operator mul(Transform) : Transform
+---@field get_x fun(Transform): number
+---@field get_y fun(Transform): number
+---@field get_z fun(Transform): number
 
 ---API for constructing Transform
 Transform = {}
@@ -178,11 +182,11 @@ function Transform.from_xyz(xyz) end
 ---@param xyz XYZ | nil
 ---@param rot Rotation | nil
 ---@return Transform
-function Transform.from_vec_rot(xyz,rot) end
+function Transform.from_vec_rot(xyz, rot) end
 
 ---It define a spatial translation,
 ---
----it is not a lua table, 
+---it is not a lua table,
 ---you need to construct it with sandy buildin function
 ---@class Vector
 
@@ -196,7 +200,7 @@ function Vector.new(xyz) end
 
 ---It define a spatial rotation,
 ---
----it is not a lua table, 
+---it is not a lua table,
 ---you need to construct it with sandy buildin function
 ---@class Rotation
 

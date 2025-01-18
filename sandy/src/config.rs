@@ -1,22 +1,8 @@
-use std::{ops::Deref, path::*, str::FromStr};
+use std::{path::*, str::FromStr};
 
 use lua::CorpusPath;
 
 use crate::*;
-
-//pub fn config_dirs() -> Vec<PathBuf> {
-//    vec![
-//        dirs::config_dir(),
-//        dirs::config_local_dir(),
-//        dirs::data_dir(),
-//        dirs::data_local_dir(),
-//        dirs::home_dir(),
-//        dirs::executable_dir(),
-//    ]
-//    .into_iter()
-//    .flatten()
-//    .collect()
-//}
 
 #[derive(Debug, States, Clone, PartialEq, Eq, Hash)]
 struct ConfigShow(bool);
@@ -84,10 +70,21 @@ impl Plugin for ConfigPlugin {
         app
         .init_state::<ConfigShow>()
         //.add_event::<ConfigEvent>()
+        .add_systems(Update, config_state_transition)
         .add_systems(Update, (menu_egui).run_if(in_state(ConfigShow(true))))
         .init_resource::<FilePicker>()
         // -- 
         ;
+    }
+}
+
+fn config_state_transition(
+    show: Res<State<ConfigShow>>,
+    mut next: ResMut<NextState<ConfigShow>>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if keys.just_pressed(KeyCode::Escape) {
+        next.set(ConfigShow(!show.0));
     }
 }
 
@@ -98,7 +95,7 @@ fn menu_egui(
 ) {
     egui::Window::new("Hello Choom!")
         .default_open(true)
-        .default_size([250.0, 200.0])
+        .default_size([200.0, 50.0])
         .default_pos([20.0, 20.0])
         .vscroll(true)
         .resizable(true)

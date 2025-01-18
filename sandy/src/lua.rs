@@ -14,17 +14,10 @@ impl Plugin for LuaPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SandyLua>()
             .init_resource::<EvalTable>()
-            //.init_state::<CodeShow>()
-            //.init_resource::<Corpus>()
             .init_resource::<CorpusPath>()
             .init_resource::<CorpusWatcherRx>()
             .init_resource::<CorpusWatcher>()
             .add_event::<ReloadCorpus>()
-            //.add_systems(Update, (code_show).run_if(in_state(CodeShow(true))))
-            //.add_systems(StateTransition, code_show_transition)
-            //.add_systems(Update, (corpus_path_updated, update_watcher, corpus_hot_reload).chain())
-            //.add_systems(Update, (despawn_chromes).after(update_watcher))
-            //.add_systems(Update, (eval_corpus).after(despawn_chromes))
             .add_systems(Update,(
                     corpus_path_updated,
                     update_watcher,
@@ -43,13 +36,10 @@ impl Plugin for LuaPlugin {
 #[derive(Debug, Resource, Deref, Default)]
 pub struct CorpusPath(pub Option<std::path::PathBuf>);
 
-//#[derive(Debug, Default, Resource, Deref)]
-//pub struct Corpus(std::string::String);
-
 #[derive(Debug, Default, Resource, Deref)]
 pub struct CorpusWatcherRx(Option<Arc<Mutex<mpsc::Receiver<notify::Result<notify::Event>>>>>);
 #[derive(Debug, Default, Resource, Deref)]
-pub struct CorpusWatcher(Option<notify::INotifyWatcher>);
+pub struct CorpusWatcher(Option<notify::RecommendedWatcher>);
 
 #[derive(Debug, Event, Clone)]
 pub struct ReloadCorpus;
@@ -77,36 +67,7 @@ impl SandyLua {
     }
 }
 
-//#[derive(Debug, Clone, PartialEq, Eq, Hash, States, Default)]
-//struct CodeShow(bool);
-
-//fn code_show(mut ctx: EguiContexts, corpus: Res<Corpus>) {
-//    egui::Window::new("Code")
-//        .default_open(true)
-//        .default_size([500.0, 500.0])
-//        .default_pos([300.0, 20.0])
-//        .vscroll(true)
-//        .resizable(true)
-//        .show(ctx.ctx_mut(), |ui| {
-//            let language = "lua";
-//            let theme =
-//                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
-//            egui_extras::syntax_highlighting::code_view_ui(ui, &theme, &corpus.0.clone(), language);
-//        });
-//}
-
-//fn code_show_transition(
-//    show: Res<State<CodeShow>>,
-//    mut next: ResMut<NextState<CodeShow>>,
-//    keys: Res<ButtonInput<KeyCode>>,
-//) {
-//    if keys.just_pressed(KeyCode::KeyB) && keys.pressed(KeyCode::ControlLeft) {
-//        next.set(CodeShow(!show.0));
-//    }
-//}
-
 fn update_watcher(
-    //mut corpus: ResMut<Corpus>,
     corpus_path: Res<CorpusPath>,
     mut corpus_watcher_rx: ResMut<CorpusWatcherRx>,
     mut corpus_watcher: ResMut<CorpusWatcher>,
@@ -179,7 +140,7 @@ fn eval_corpus(
 ) {
     if reload.read().count() == 0 {
         return;
-    } //println!("evaling");
+    }
     *lua = SandyLua::new();
 
     let corpus_path = match &corpus_path.0 {
@@ -247,14 +208,13 @@ fn sandy_func(
 }
 
 fn sandy_spawn_chrome(
-    mut reload: EventReader<ReloadCorpus>,
     mut cmd: Commands,
     table: Res<EvalTable>,
     mut meshs: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     lua: Res<SandyLua>,
 ) {
-    if reload.read().count() == 0 {
+    if !table.is_changed() {
         return;
     }
 

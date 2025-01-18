@@ -145,6 +145,9 @@ pub fn camera_event(mut camcoord: ResMut<CameraCoord>) {
 }
 
 fn camera_keyboard(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.pressed(KeyCode::ControlLeft) {
+        return;
+    }
     let mut delta = time.delta_secs() * 10.0;
     if keys.pressed(KeyCode::ShiftLeft) {
         delta *= 5.0;
@@ -163,7 +166,7 @@ fn camera_keyboard(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>) {
             CAMERA_CHANNEL.send(e.clone());
         }
     }
-    if keys.just_pressed(KeyCode::KeyR) {
+    if keys.just_pressed(KeyCode::KeyR) && !keys.pressed(KeyCode::ControlLeft) {
         CAMERA_CHANNEL.send(CameraEvent::Switch);
     }
 }

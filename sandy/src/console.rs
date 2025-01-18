@@ -24,7 +24,8 @@ impl Plugin for ConsolePlugin {
         app.init_resource::<Console>()
             .init_state::<ConsoleShow>()
             .add_systems(Update, console_update)
-            .add_systems(Update, (console_show).run_if(in_state(ConsoleShow(true))));
+            .add_systems(Update, (console_show).run_if(in_state(ConsoleShow(true))))
+            .add_systems(Update, console_state_transition);
     }
 }
 
@@ -82,6 +83,16 @@ fn console_update(mut console: ResMut<Console>) {
     }
 }
 
+fn console_state_transition(
+    show: Res<State<ConsoleShow>>,
+    mut next: ResMut<NextState<ConsoleShow>>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if keys.just_pressed(KeyCode::KeyC) && keys.pressed(KeyCode::ControlLeft) {
+        next.set(ConsoleShow(!show.0));
+    }
+}
+
 fn console_show(mut ctx: EguiContexts, console: Res<Console>) {
     egui::Window::new("Console")
         .default_open(true)
@@ -91,14 +102,20 @@ fn console_show(mut ctx: EguiContexts, console: Res<Console>) {
         .scroll(true)
         .resizable(true)
         .show(ctx.ctx_mut(), |ui| {
-            egui::Grid::new("console_main_grid")
-                .max_col_width(750.0)
-                .striped(true)
+            egui::ScrollArea::new([false, true])
+                .stick_to_bottom(true)
+                .animated(true)
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
                 .show(ui, |ui| {
-                    for entry in console.entry.iter() {
-                        ui.label(entry);
-                        ui.end_row();
-                    }
+                    egui::Grid::new("console_main_grid")
+                        .max_col_width(750.0)
+                        .striped(true)
+                        .show(ui, |ui| {
+                            for entry in console.entry.iter() {
+                                ui.label(entry);
+                                ui.end_row();
+                            }
+                        });
                 });
         });
 }
