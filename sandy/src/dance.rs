@@ -1,5 +1,5 @@
 use console::console_log;
-use mlua::{LuaSerdeExt, ObjectLike};
+use mlua::LuaSerdeExt;
 
 use channel::{lazy_channel, LazyChannel};
 use chrome::{Chrome, ChromeMaterial};
@@ -55,7 +55,11 @@ fn dance_chrome_on_tick(
     for e in event.read() {
         let tick = e.0;
         for mut c in query.iter_mut() {
-            *c.0 = match c.1.on_tick.call(tick) {
+            let on_tick = match &c.1.on_tick {
+                Some(f) => f,
+                None => continue,
+            };
+            *c.0 = match on_tick.call(tick) {
                 Ok(t) => t,
                 Err(e) => {
                     println!("{:?}", e);
@@ -93,28 +97,39 @@ fn dance_after_image_clear(
 
 fn dance_after_image(
     mut cmd: Commands,
-    query: Query<(Entity, &ZTransform), With<Chrome>>,
+    query: Query<(Entity, &ZTransform, &Chrome)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     part: Query<(&Transform, &Mesh3d)>,
     ch: Query<&Children>,
+    runner: Res<runner::Runner>,
+    lua: Res<lua::SandyLua>,
 ) {
-    let mut material = None;
-    while let Some(m) = DANCE_CHANNEL.read() {
-        material = Some(m.0);
-    }
-    let material = match material {
-        Some(m) => m,
-        None => return,
-    };
+    //let material = MeshMaterial3d(materials.add(material.as_material()));
+    for (id, zt, chrome) in query.iter() {
+        let after_image = match &chrome.after_image {
+            Some(f) => f,
+            None => continue,
+        };
+        let material: ChromeMaterial = match after_image.call::<mlua::Value>(runner.tick) {
+            Ok(m) => {
+                if m.is_nil() {
+                    continue;
+                }
+                lua.0.from_value(m).unwrap_or_default()
+            }
+            Err(e) => {
+                println!("Error {:?}", e);
+                continue;
+            }
+        };
 
-    let material = MeshMaterial3d(materials.add(material.as_material()));
+        let material = MeshMaterial3d(materials.add(material.as_material()));
 
-    for (chrome, zt) in query.iter() {
         let ai = cmd
             .spawn((ZBundle::new(zt.0), AfterImage, Visibility::default()))
             .id();
 
-        for c in ch.iter_descendants(chrome) {
+        for c in ch.iter_descendants(id) {
             let (t, m) = part.get(c).unwrap();
 
             let ai_p = cmd.spawn(((*t), m.clone(), material.clone())).id();
@@ -127,7 +142,9 @@ fn dance_after_image(
 static DANCE_CHANNEL: LazyChannel<DanceMessage> = lazy_channel!();
 
 #[derive(Clone, Debug)]
-pub struct DanceMessage(ChromeMaterial);
+pub enum DanceMessage {
+    Clear,
+}
 
 pub struct DanceChip;
 
@@ -135,46 +152,22 @@ impl lua::LuaChip for DanceChip {
     fn build(&self, lua: &mut lua::SandyLua) {
         let dance = lua.create_table().unwrap();
 
-        let after_image = lua
-            .create_function(|lua, value: mlua::Value| {
-                let material = lua.from_value(value).unwrap_or_default();
-                DANCE_CHANNEL.send(DanceMessage(material));
+        //let after_image = lua
+        //    .create_function(|lua, value: mlua::Value| {
+        //        let material = lua.from_value(value).unwrap_or_default();
+        //        DANCE_CHANNEL.send(DanceMessage(material));
+        //        Ok(())
+        //    })
+        //    .unwrap();
+        //dance.set("after_image", after_image).unwrap();
+        let clear = lua
+            .create_function(|_lua, ()| {
+                DANCE_CHANNEL.send(DanceMessage::Clear);
                 Ok(())
             })
             .unwrap();
-        dance.set("after_image", after_image).unwrap();
+        dance.set("clear", clear).unwrap();
 
         lua.globals().set("Dance", dance).unwrap();
     }
 }
-
-//fn chrome_despawn(
-//    mut cmd: Commands,
-//    query: Query<Entity, With<Chrome>>,
-//    child: Query<&Children>,
-//    model : Res<ChromeModel>
-//) {
-//    if !model.is_changed() {
-//        return;
-//    }
-//    for q in query.iter() {
-//        for ch in child.iter_descendants(q) {
-//            cmd.entity(ch).despawn();
-//        }
-//        cmd.entity(q).despawn();
-//    }
-//}
-//
-//fn chrome_spawn(
-//    mut cmd: Commands,
-//    mut meshs: ResMut<Assets<Mesh>>,
-//    mut materials: ResMut<Assets<StandardMaterial>>,
-//    model : Res<ChromeModel>
-//) {
-//    if !model.is_changed() {
-//        return ;
-//    }
-//
-//
-//
-//}

@@ -47,10 +47,9 @@ function Plotter.aspect(aspect) end
 ---@field on_tick? fun(tick:integer):nil
 
 ---API for adding after image in the engine
-Dance = {} ---When call, it will spawn after image with given material for all chromes
----multiple call within in one tick will only result in one after image
----@param material Material
-function Dance.after_image(material) end
+Dance = {} 
+---clear all after image in the environment
+function Dance.clear(material) end
 
 ---It define controllable object that will be render
 ---
@@ -66,6 +65,7 @@ function Dance.after_image(material) end
 ---a function that will be call every tick,
 ---expected to return a Transform.
 ---@field on_tick? fun(tick: integer):Transform
+---@field after_image? fun(tick: integer):Material
 
 ---It defines a part of the chrome that will be rendered
 ---

@@ -23,11 +23,13 @@ end
 
 dance.on_tick = function(tick)
 	-- Camera.space({ r = 75, rz = tick / 10 });
-	if tick % 50 == 0 then
-		local m = { color = Color.hsva({ hue = tick / 1000 * 360, saturation = 1, value = 1, alpha = 0.4 }) }
-		Dance.after_image(m)
-	end
+	-- if tick % 50 == 0 then
+	-- 	local m = { color = Color.hsva({ hue = tick / 1000 * 360, saturation = 1, value = 1, alpha = 0.4 }) }
+	-- 	Dance.after_image(m)
+	-- end
 end
+
+local after_image_fn = util.make_after_image(dance.runner.max_tick, 10)
 
 ---@type Chrome
 local chrome_1 = {
@@ -49,6 +51,7 @@ local chrome_1 = {
 			},
 		},
 	},
+  after_image = after_image_fn
 }
 
 dance.chromes = {

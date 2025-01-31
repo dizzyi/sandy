@@ -229,7 +229,8 @@ fn sandy_spawn_chrome(
         let (_, c) = pair.unwrap();
 
         let chr = chrome::Chrome {
-            on_tick: c.get("on_tick").unwrap(),
+            on_tick: c.get("on_tick").ok(),
+            after_image: c.get("after_image").ok(),
         };
 
         //println!("{:?}", ZBundle::default());

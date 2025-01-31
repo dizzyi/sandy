@@ -5,7 +5,8 @@ use ztransform::ZTransform;
 
 #[derive(Debug, Component)]
 pub struct Chrome {
-    pub on_tick: mlua::Function,
+    pub on_tick: Option<mlua::Function>,
+    pub after_image: Option<mlua::Function>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

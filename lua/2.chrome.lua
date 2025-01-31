@@ -5,11 +5,9 @@ Console.clear()
 ---@type Dance
 local dance = util.new_dance()
 
-dance.on_tick = function(tick)
-	if tick % 25 == 0 then
-		util.after_image(tick / dance.runner.max_tick * 360.0)
-	end
-end
+dance.on_tick = function(tick) end
+
+local after_image_fn = util.make_after_image(dance.runner.max_tick, 10);
 
 ---@type Chrome
 local chrome_1 = {
@@ -31,14 +29,14 @@ local chrome_1 = {
 	},
 	on_tick = function(tick)
 		local x = math.sin(tick / 200.0) * 10.0
-		local y = math.cos(tick / 200.0) * 10.0
-		local z = 0
+		local y = math.cos(tick / 200.0) * 10.0 local z = 0
 		return Transform.from_xyz({
 			x = x,
 			y = y,
 			z = z,
 		})
 	end,
+  after_image = after_image_fn
 }
 ---@type Chrome
 local chrome_2 = {
@@ -53,6 +51,7 @@ local chrome_2 = {
 			z = z,
 		})
 	end,
+  -- after_image = after_image_fn
 }
 
 dance.chromes = {

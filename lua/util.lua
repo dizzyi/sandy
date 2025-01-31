@@ -49,17 +49,23 @@ function util.blue_cube()
 	}
 end
 
-function util.after_image(hue)
-	---@type Material
-	local material = {
-		color = Color.hsva({
-			alpha = 0.5,
-			hue = hue,
-			value = 0.8,
-			saturation = 0.8,
-		}),
-	}
-	Dance.after_image(material)
+function util.make_after_image(max_tick, interval)
+  local after_image = function (tick)
+    if tick % interval ~= 0 then
+      return nil
+    end
+    ---@type Material
+    local material = {
+      color = Color.hsva({
+        alpha = 0.5,
+        hue = tick / max_tick * 360.0,
+        value = 0.8,
+        saturation = 0.8,
+      }),
+    }
+    return material
+  end
+  return after_image
 end
 
 return util

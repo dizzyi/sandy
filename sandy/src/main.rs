@@ -4,7 +4,6 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use egui_file::FileDialog;
 use serde::{Deserialize, Serialize};
-
 pub mod camera;
 pub mod channel;
 pub mod chrome;
@@ -57,13 +56,28 @@ fn spawn_stuff(
 ) {
     cmd.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 1000.0,
+        brightness: 500.0,
     });
+
+    cmd.spawn((
+        PointLight {
+            color: Color::WHITE,
+            intensity: 1_000_000.0,
+            shadows_enabled: true,
+            ..Default::default()
+        },
+        Transform::from_xyz(10.0, 0.0, 0.0),
+    ))
+    //.with_child((
+    //    Mesh3d(meshs.add(Mesh::from(Sphere { radius: 1.0 }))),
+    //    MeshMaterial3d(materials.add(Color::srgb(1.0, 0.5, 0.5))),
+    //))
+    ;
 
     cmd.spawn((
         Mesh3d(meshs.add(Mesh::from(Plane3d {
             normal: Dir3::Z,
-            half_size: Vec2::new(20.0, 10.0),
+            half_size: Vec2::new(30.0, 15.0),
         }))),
         MeshMaterial3d(materials.add(Color::srgb(1.0, 0.5, 0.5))),
         ztransform::ZBundle::identity(),
