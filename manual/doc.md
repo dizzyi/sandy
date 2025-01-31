@@ -35,6 +35,13 @@ function Camera.space(space?: { r: number, rx: number, rz: number })
 
 # Chrome
 
+## after_image
+
+
+```lua
+(fun(tick: integer):Material)?
+```
+
 ## on_tick
 
 
@@ -91,16 +98,6 @@ The offset from the origin of the chrome
 
 # Color
 
-
-```lua
-table
-```
-
-
----
-
-# Color
-
 ## Hsva
 
 
@@ -113,6 +110,16 @@ table
 
 ```lua
 { red: number, green: number, blue: number, alpha: number }?
+```
+
+
+---
+
+# Color
+
+
+```lua
+table
 ```
 
 
@@ -150,6 +157,16 @@ table
 
 ---
 
+# Console.clear
+
+
+```lua
+function Console.clear()
+```
+
+
+---
+
 # Console.print
 
 
@@ -166,16 +183,6 @@ function Console.print(msg: string)
 ---
 
 # Cylinder
-
-
----
-
-# Dance
-
-
-```lua
-table
-```
 
 
 ---
@@ -221,11 +228,21 @@ Configure the runner of the project
 
 ---
 
-# Dance.after_image
+# Dance
 
 
 ```lua
-function Dance.after_image(material: Material)
+table
+```
+
+
+---
+
+# Dance.clear
+
+
+```lua
+function Dance.clear(material: any)
 ```
 
 
@@ -422,14 +439,14 @@ function Plotter.push(name: string, y: number)
 # Rotation
 
 
-```lua
-table
-```
-
-
 ---
 
 # Rotation
+
+
+```lua
+table
+```
 
 
 ---
@@ -519,6 +536,27 @@ define if the runner should have a default start
 ---
 
 # Transform
+
+## get_x
+
+
+```lua
+fun(Transform: any):number
+```
+
+## get_y
+
+
+```lua
+fun(Transform: any):number
+```
+
+## get_z
+
+
+```lua
+fun(Transform: any):number
+```
 
 
 ---
